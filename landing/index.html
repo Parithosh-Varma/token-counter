@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>token-viewer — live telemetry for code agents</title>
+<meta name="description" content="Big bold live token count for opencode, codex, claude — daily input, smooth tween, bg sparkline. Zero deps." />
+<meta name="color-scheme" content="dark light" />
+<link rel="preload" href="./fonts/Gnomon-Simple.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  @font-face{font-family:"Gnomon";src:url("./fonts/Gnomon-Simple.ttf") format("truetype");font-display:swap}
+  :root{
+    --ink:#0A0F1E;
+    --paper:#F0F2F5;
+    --dial:#1E3A8A;
+    --signal:#FF4D00;
+    --cyan:#06B6D4;
+    --muted:#8A94A6;
+    --line:#1A2338;
+    --card:#0F1830;
+    --grid:rgba(255,255,255,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ink);
+    color:#E6EAF2;
+    font-family:"Instrument Sans", system-ui, -apple-system, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  a{color:inherit}
+  /* perforated tape — signature */
+  .tape{
+    height:36px;
+    background:var(--paper);
+    color:var(--ink);
+    display:flex;align-items:center;
+    overflow:hidden;
+    border-bottom:4px solid var(--ink);
+    position:relative;
+  }
+  .tape::before,.tape::after{
+    content:"";
+    position:absolute;left:0;right:0;height:6px;
+    background:radial-gradient(circle, var(--ink) 3px, transparent 3.5px) repeat-x;
+    background-size:16px 6px;
+    opacity:.9;
+  }
+  .tape::before{top:3px}
+  .tape::after{bottom:3px}
+  .tape-track{
+    display:flex;gap:32px;align-items:center;
+    white-space:nowrap;
+    animation:scroll 22s linear infinite;
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    font-weight:700;
+  }
+  @media (prefers-reduced-motion: reduce){ .tape-track{animation:none} }
+  @keyframes scroll{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .tape b{font-weight:800;color:var(--signal)}
+  .tape em{font-style:normal;opacity:.45}
+
+  /* header */
+  header{
+    max-width:1180px;margin:0 auto;
+    padding:18px 20px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+  }
+  .brand{
+    display:flex;align-items:center;gap:12px;
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+  }
+  .brand i{
+    width:28px;height:28px;display:grid;place-items:center;
+    background:var(--signal);color:white;border-radius:7px;
+    font-style:normal;font-weight:800;letter-spacing:0;
+  }
+  nav{display:flex;gap:10px;align-items:center}
+  .nav-link{
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);text-decoration:none;
+    padding:8px 10px;border-radius:999px;
+    border:1px solid transparent;
+  }
+  .nav-link:hover{color:#fff;border-color:rgba(255,255,255,0.12)}
+  .cta{
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    background:var(--signal);color:white;
+    border:0;border-radius:999px;padding:10px 16px;
+    font-weight:700;cursor:pointer;
+    box-shadow:0 8px 24px rgba(255,77,0,0.35);
+  }
+  .cta:active{transform:scale(.98)}
+
+  /* hero — thesis is the live instrument, not a marketing claim */
+  .hero{
+    max-width:1180px;margin:0 auto;
+    padding:28px 20px 18px;
+    display:grid;
+    grid-template-columns: 1.35fr .85fr;
+    gap:18px;
+    align-items:stretch;
+  }
+  @media (max-width:900px){ .hero{grid-template-columns:1fr} }
+  .instrument{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px 18px 16px;
+    position:relative;
+    overflow:hidden;
+    min-height:420px;
+    display:flex;flex-direction:column;
+  }
+  .instrument::before{
+    content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:32px 32px;
+    opacity:.35;pointer-events:none;
+  }
+  .instrument-head{
+    position:relative;z-index:1;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:10px;
+  }
+  .live-dot{
+    width:8px;height:8px;background:var(--cyan);border-radius:50%;
+    box-shadow:0 0 0 6px rgba(6,182,212,0.18), 0 0 12px var(--cyan);
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(.88)}}
+  .dial-label{
+    display:flex;align-items:center;gap:8px;
+  }
+  .range{
+    display:flex;gap:4px;background:rgba(255,255,255,0.06);border:1px solid var(--line);border-radius:999px;padding:3px;
+  }
+  .range button{
+    appearance:none;border:0;background:transparent;color:var(--muted);
+    font-family:"Geist Mono", monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    padding:6px 10px;border-radius:999px;cursor:pointer;
+  }
+  .range button.active{background:white;color:var(--ink);font-weight:700}
+  .gauge{
+    position:relative;z-index:1;
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;
+    padding:8px 0 6px;
+  }
+  .gauge-label{
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;gap:10px;margin-bottom:8px;
+  }
+  .gauge-label::before,.gauge-label::after{content:"";width:22px;height:1px;background:var(--line)}
+  #heroCount{
+    font-family:"Gnomon", serif;
+    font-size:clamp(48px, 9vw, 96px);
+    line-height:.9;letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;
+    color:white;
+    text-shadow:0 12px 40px rgba(0,0,0,0.45);
+  }
+  .subline{
+    margin-top:8px;
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.08em;color:var(--muted);
+  }
+  .subline b{color:white}
+  .spark{
+    position:relative;z-index:1;
+    height:84px;margin-top:14px;
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .spark canvas{width:100%;height:100%;display:block}
+  .spark-meta{
+    position:absolute;right:10px;top:8px;z-index:2;
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+    background:rgba(10,15,30,0.7);backdrop-filter:blur(6px);
+    border:1px solid var(--line);border-radius:999px;padding:4px 8px;
+  }
+
+  /* control panel — right side, dial aesthetic */
+  .panel{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:18px;
+    padding:18px 18px 16px;
+    display:flex;flex-direction:column;gap:14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .panel::before{
+    content:"";position:absolute;top:0;right:0;width:42%;height:42%;
+    background:var(--signal);opacity:.08;
+    clip-path:polygon(100% 0, 0 0, 100% 100%);
+    pointer-events:none;
+  }
+  .panel h2{
+    font-family:"Gnomon", serif;
+    font-size:28px;line-height:.95;letter-spacing:-.02em;
+  }
+  .panel h2 em{font-style:normal;color:var(--signal)}
+  .panel p{
+    font-size:14px;line-height:1.55;color:#2A3245;
+  }
+  .agent-dial{
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;
+    margin-top:2px;
+  }
+  .dial-card{
+    border:1px solid #D9DDE4;border-radius:12px;
+    padding:12px 12px 10px;
+    background:white;
+    position:relative;
+  }
+  .dial-card.active{border-color:var(--ink);box-shadow:0 8px 20px rgba(10,15,30,0.08)}
+  .dial-card.active::after{
+    content:"●";position:absolute;top:10px;right:10px;
+    color:var(--signal);font-size:10px;
+  }
+  .dial-card h3{
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  }
+  .dial-card p{
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.02em;color:var(--muted);margin-top:4px;
+    line-height:1.4;
+  }
+  .install{
+    background:var(--ink);color:#E6EAF2;
+    border-radius:12px;padding:12px 12px;
+    font-family:"Geist Mono", monospace;
+    font-size:12px;letter-spacing:.02em;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border:1px solid var(--line);
+  }
+  .install code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .install button{
+    appearance:none;border:1px solid rgba(255,255,255,0.14);
+    background:rgba(255,255,255,0.08);color:white;
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    padding:7px 10px;border-radius:999px;cursor:pointer;flex-shrink:0;
+  }
+  .install button:active{transform:scale(.98)}
+  .fine{
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.08em;color:var(--muted);
+    display:flex;gap:8px;flex-wrap:wrap;
+  }
+  .fine a{color:var(--ink);text-decoration:none;border-bottom:1px solid #D9DDE4}
+
+  /* sections — information as structure, not decoration */
+  .section{
+    max-width:1180px;margin:0 auto;
+    padding:22px 20px;
+  }
+  .kicker{
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  }
+  .kicker::before{content:"";width:18px;height:2px;background:var(--signal)}
+  .grid3{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+  }
+  @media (max-width:860px){ .grid3{grid-template-columns:1fr} }
+  .card{
+    background:var(--paper);color:var(--ink);
+    border-radius:14px;padding:16px 16px 14px;
+    border:1px solid #E1E5EB;
+    position:relative;
+  }
+  .card h3{
+    font-family:"Gnomon", serif;
+    font-size:18px;line-height:1.1;letter-spacing:-.01em;
+  }
+  .card h3 span{color:var(--signal)}
+  .card p{margin-top:8px;font-size:13.5px;line-height:1.55;color:#2A3245}
+  .card dl{
+    margin-top:12px;
+    display:flex;gap:10px;flex-wrap:wrap;
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  }
+  .card dl b{color:var(--ink);font-size:11px;letter-spacing:.02em}
+  .card::after{
+    content:"";position:absolute;top:14px;right:14px;
+    width:28px;height:28px;border-radius:8px;
+    background:var(--ink);opacity:.06;
+  }
+
+  .compat{
+    background:var(--card);color:#E6EAF2;
+    border:1px solid var(--line);border-radius:18px;
+    padding:18px;
+    display:grid;grid-template-columns:1.1fr .9fr;gap:18px;
+    align-items:center;
+  }
+  @media (max-width:860px){ .compat{grid-template-columns:1fr} }
+  .compat h3{font-family:"Gnomon", serif;font-size:22px;line-height:1}
+  .compat p{color:var(--muted);font-size:13.5px;margin-top:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .chip{
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.08em;
+    padding:8px 12px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(255,255,255,0.04);
+    color:#E6EAF2;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .chip i{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+  .chip.muted{opacity:.45}
+  .compat-ill{
+    background:var(--paper);border-radius:14px;
+    padding:14px;border:1px solid #E1E5EB;
+    color:var(--ink);
+    font-family:"Geist Mono", monospace;
+    font-size:11px;
+  }
+  .compat-ill b{color:var(--signal)}
+  .compat-ill pre{
+    margin-top:8px;background:var(--ink);color:#E6EAF2;
+    border-radius:10px;padding:12px;overflow:auto;
+    font-size:11px;line-height:1.5;
+  }
+
+  footer{
+    max-width:1180px;margin:0 auto;
+    padding:18px 20px 28px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    font-family:"Geist Mono", monospace;
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+    border-top:1px solid var(--line);margin-top:14px;
+  }
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:white}
+
+  /* focus */
+  :focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+</style>
+</head>
+<body>
+  <div class="tape" aria-hidden="true">
+    <div class="tape-track" id="tapeTrack">
+      <span><b>5,759,642</b> input <em>·</em> daily</span>
+      <span><b>1,279,049</b> codex <em>·</em> today</span>
+      <span><b>88,887</b> tokens/min <em>·</em> live</span>
+      <span><b>opencode</b> <em>·</em> codex <em>·</em> claude <em>·</em> combined</span>
+      <span><b>5,759,642</b> input <em>·</em> daily</span>
+      <span><b>1,279,049</b> codex <em>·</em> today</span>
+      <span><b>88,887</b> tokens/min <em>·</em> live</span>
+      <span><b>opencode</b> <em>·</em> codex <em>·</em> claude <em>·</em> combined</span>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand"><i>◐</i> token-viewer <span style="opacity:.45">— telemetry for code agents</span></div>
+    <nav>
+      <a class="nav-link" href="#install">Install</a>
+      <a class="nav-link" href="https://github.com/Parithosh-Varma/token-viewer" target="_blank" rel="noopener">GitHub</a>
+      <button class="cta" onclick="document.getElementById('install').scrollIntoView({behavior:'smooth'})">Run locally →</button>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="instrument" id="instrument">
+      <div class="instrument-head">
+        <span class="dial-label"><span class="live-dot"></span> live — sqlite + jsonl</span>
+        <div class="range" role="tablist" aria-label="time range">
+          <button class="active" data-r="daily">daily</button>
+          <button data-r="weekly">weekly</button>
+          <button data-r="session">session</button>
+          <button data-r="all">all</button>
+        </div>
+      </div>
+      <div class="gauge">
+        <div class="gauge-label">daily input — today</div>
+        <div id="heroCount">5,759,642</div>
+        <div class="subline"><b id="heroSub">5,759,642</b> input tokens <span style="opacity:.35">·</span> <span id="heroRate">1,420 tok/s</span></div>
+      </div>
+      <div class="spark">
+        <div class="spark-meta" id="sparkMeta">last 10m · pointy</div>
+        <canvas id="sparkCanvas" width="800" height="84" aria-hidden="true"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Your agents <em>spend</em> tokens.<br>Now you can <em>see</em> it.</h2>
+      <p>Token-viewer is a tiny localhost instrument — one big number, no dashboard bloat. It tails your local DBs and shows <b>input-only, daily</b> live with a pointy sparkline behind it. No cloud, no key, just <code>node server.js</code>.</p>
+
+      <div class="agent-dial" role="tablist" aria-label="agent">
+        <div class="dial-card active" data-a="opencode"><h3>opencode</h3><p>~/.local/share/opencode/opencode.db · 22G</p></div>
+        <div class="dial-card" data-a="codex"><h3>codex</h3><p>state_5.sqlite · 58M total</p></div>
+        <div class="dial-card" data-a="claude"><h3>claude</h3><p>~/.claude/projects · auto</p></div>
+        <div class="dial-card" data-a="combined"><h3>combined</h3><p>all agents · daily sum</p></div>
+      </div>
+
+      <div class="install" id="install">
+        <code id="installCmd">git clone https://github.com/Parithosh-Varma/token-viewer && cd token-viewer && node server.js</code>
+        <button id="copyInstall">copy</button>
+      </div>
+      <div class="fine">
+        <span>Zero deps · Node 22+ `node:sqlite`</span>
+        <span>·</span>
+        <a href="https://github.com/Parithosh-Varma/token-viewer" target="_blank" rel="noopener">README →</a>
+        <span>·</span>
+        <span>http://127.0.0.1:8787</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:6px">
+    <div class="video-wrap" style="background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;padding:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 6px 10px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">
+        <span>● live demo — localhost:8787 · daily input</span><span style="opacity:.5">autoplay · muted · loop</span>
+      </div>
+      <video src="./demo.mp4" autoplay muted loop playsinline controls style="width:100%;height:auto;display:block;border-radius:12px;background:#000;aspect-ratio:16/9;object-fit:cover"></video>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="kicker">why this exists</div>
+    <div class="grid3">
+      <div class="card">
+        <h3>Cache is <span>93%</span> of what you see</h3>
+        <p>Token-viewer separates input, output, and cache re-reads. That 89M “total” is mostly cheap cache — daily input is the real spend.</p>
+        <dl><span><b>input</b> pay</span><span><b>cache</b> cheap</span><span><b>output</b> small</span></dl>
+      </div>
+      <div class="card">
+        <h3>Smooth, <span>not jumpy</span></h3>
+        <p>Number tweens with <code>easeOutCubic</code> 480–950ms at 60fps. Sparkline glides with it — no sharp jumps, subtle tension, no overshoot.</p>
+        <dl><span><b>220ms</b> poll</span><span><b>60fps</b> lerp</span><span><b>~1.6px</b> line</span></dl>
+      </div>
+      <div class="card">
+        <h3>One number, <span>minimal</span></h3>
+        <p>Not a dashboard. One big Gnomon number, input-only by default, dark/light toggle, pointy graph as bg. Copy, fullscreen, done.</p>
+        <dl><span><b>Gnomon</b> display</span><span><b>Instrument Sans</b> body</span><span><b>Geist Mono</b> data</span></dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="compat">
+      <div>
+        <h3>Compatible with the agents you actually use</h3>
+        <p>Auto-detects local stores. No API keys. If a DB isn’t there, it just shows 0 — other users with different setups see their own numbers.</p>
+        <div class="chips">
+          <span class="chip"><i></i> opencode ✓</span>
+          <span class="chip"><i></i> codex ✓</span>
+          <span class="chip"><i style="background:var(--muted)"></i> claude — auto</span>
+          <span class="chip muted">cursor · windsurf · aider · continue — placeholder</span>
+        </div>
+      </div>
+      <div class="compat-ill">
+        <div><b>GET /api/live</b> — combined + per-agent <span style="opacity:.5">· daily since 00:00</span></div>
+        <pre>{
+  "opencode": { "daily": { "sum_input": 5759642 } },
+  "codex":    { "daily": { "total_tokens": 1279049 } },
+  "combined": { "daily": { "sum_input": 6996187 } }
+}</pre>
+        <div style="margin-top:8px;opacity:.6">Also: <code>/api/agents</code> · <code>/api/health</code> · <code>/health</code></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>© token-viewer · Parithosh-Varma · <a href="https://github.com/Parithosh-Varma/token-viewer">github</a></span>
+    <span>built as a studio instrument — one risk: <b style="color:var(--signal)">signal orange</b> as hero accent on ink</span>
+  </footer>
+
+<script>
+// minimal live demo — simulates smooth count + sparkline like the real viewer (no fetch needed for landing)
+(() => {
+  const countEl = document.getElementById('heroCount');
+  const subEl = document.getElementById('heroSub');
+  const rateEl = document.getElementById('heroRate');
+  const canvas = document.getElementById('sparkCanvas');
+  const ctx = canvas.getContext('2d', {alpha:true});
+  let displayed = 5759642, target = 5759642;
+  let tweenFrom=displayed, tweenTo=target, tweenStart=0, tweenDur=0;
+  const fmt = n => new Intl.NumberFormat('en-US').format(Math.floor(n));
+  function easeOutCubic(t){ return 1 - Math.pow(1-t,3); }
+  function startTween(to){
+    tweenFrom=displayed; tweenTo=to; tweenStart=performance.now();
+    const dist=Math.abs(to-tweenFrom);
+    tweenDur=Math.min(950, Math.max(480, 380 + Math.log10(dist+10)*140));
+  }
+  // fake live increments — small bursts like real agent
+  setInterval(()=>{
+    const inc = Math.random()<0.7 ? Math.floor(Math.random()*420)+80 : Math.floor(Math.random()*1800)+600;
+    target += inc;
+    startTween(target);
+    // push to history
+    history.push({t:Date.now(), v:target});
+    if(history.length>120) history.shift();
+  }, 620);
+
+  let history = Array.from({length:60}, (_,i)=>({t:Date.now()- (60-i)*900, v:5759642 - (60-i)*90 + Math.random()*400}));
+  let raf;
+  function draw(){
+    const W=canvas.width, H=canvas.height, dpr=window.devicePixelRatio||1;
+    // handle DPR once
+    if(canvas.width !== canvas.clientWidth*dpr){
+      canvas.width = canvas.clientWidth*dpr;
+      canvas.height = canvas.clientHeight*dpr;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    if(history.length<2) return;
+    // use displayed for last point so line glides
+    const vals = history.map(p=>p.v);
+    vals[vals.length-1] = displayed;
+    let min=Math.min(...vals), max=Math.max(...vals);
+    const pad=(max-min)*0.18 || max*0.06;
+    min-=pad; max+=pad; if(min<0)min=0;
+    const span=max-min||1;
+    const t0=history[0].t, t1=Date.now(), tSpan=Math.max(1, t1-t0);
+    const pts = history.map(p=>({
+      x: 10 + ((p.t - t0)/tSpan)*(w-20),
+      y: h - 10 - (( (p===history[history.length-1] ? displayed : p.v) - min)/span)*(h-20)
+    }));
+    // subtle line
+    const grad = ctx.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0, "rgba(22,82,240,0.14)");
+    grad.addColorStop(1, "transparent");
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, h-10);
+    pts.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.lineTo(pts[pts.length-1].x, h-10);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle="#1652f0";
+    ctx.lineWidth=1.6; ctx.lineJoin="round"; ctx.lineCap="round";
+    ctx.beginPath();
+    pts.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+    // dot
+    const last=pts[pts.length-1];
+    ctx.fillStyle="#1652f0"; ctx.beginPath(); ctx.arc(last.x,last.y,2.8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#0A0F1E"; ctx.beginPath(); ctx.arc(last.x,last.y,1.2,0,Math.PI*2); ctx.fill();
+  }
+  function tick(now){
+    if(tweenDur>0){
+      const e=(now - tweenStart)/tweenDur;
+      if(e < 1){
+        const p=easeOutCubic(e);
+        displayed = tweenFrom + (tweenTo - tweenFrom)*p;
+      } else { displayed=tweenTo; tweenDur=0; }
+      countEl.textContent = fmt(displayed);
+      subEl.textContent = fmt(displayed);
+      rateEl.textContent = (Math.random()*400+ 900).toFixed(0) + " tok/s";
+    }
+    draw();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  // range buttons — just visual for landing
+  document.querySelectorAll('.range button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.range button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      document.querySelector('.gauge-label').textContent = b.textContent + " input — " + (b.dataset.r==="daily"?"today":b.dataset.r==="weekly"?"last 7 days":b.dataset.r==="session"?"live":"lifetime");
+    });
+  });
+  document.querySelectorAll('.dial-card').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('.dial-card').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+    });
+  });
+  document.getElementById('copyInstall').addEventListener('click', async ()=>{
+    const txt=document.getElementById('installCmd').textContent;
+    try{ await navigator.clipboard.writeText(txt);}catch{
+      const t=document.createElement('textarea'); t.value=txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove();
+    }
+    const b=document.getElementById('copyInstall'); const o=b.textContent; b.textContent="copied ✓"; setTimeout(()=>b.textContent=o,1100);
+  });
+  // respect reduced motion
+  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    document.querySelectorAll('.tape-track').forEach(el=> el.style.animation="none");
+  }
+})();
+</script>
+</body>
+</html>
