@@ -12,21 +12,38 @@
 <style>
   @font-face{font-family:"Gnomon";src:url("./fonts/Gnomon-Simple.ttf") format("truetype");font-display:swap}
   :root{
-    --ink:#0A0F1E;
-    --paper:#F0F2F5;
-    --dial:#1E3A8A;
-    --signal:#FF4D00;
-    --cyan:#06B6D4;
-    --muted:#8A94A6;
-    --line:#1A2338;
+    --bg:#050507;
+    --fg:#f5f5f5;
+    --muted:#9a9aa0;
+    --dim:#2a2a2e;
+    --accent:#00ff88;
+    --accent2:#7c5cff;
+    --pill-bg:#111113;
+    --pill-bd:#1e1e22;
+    --ink:var(--bg);
+    --paper:var(--pill-bg);
+    --line:var(--pill-bd);
     --card:#0F1830;
     --grid:rgba(255,255,255,0.06);
+    --signal:var(--accent);
+    --cyan:var(--accent);
+  }
+  [data-theme="light"]{
+    --bg:#fcfcfc;
+    --fg:#0a0a0a;
+    --muted:#71717a;
+    --dim:#e4e4e7;
+    --pill-bg:#ffffff;
+    --pill-bd:#e4e4e7;
+    --ink:var(--bg);
+    --paper:var(--pill-bg);
+    --line:var(--pill-bd);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{
-    background:var(--ink);
-    color:#E6EAF2;
+    background:var(--bg);
+    color:var(--fg);
     font-family:"Instrument Sans", system-ui, -apple-system, sans-serif;
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
@@ -35,35 +52,26 @@
   a{color:inherit}
   /* perforated tape — signature */
   .tape{
-    height:36px;
+    height:32px;
     background:var(--paper);
-    color:var(--ink);
+    color:var(--muted);
     display:flex;align-items:center;
     overflow:hidden;
-    border-bottom:4px solid var(--ink);
+    border-bottom:1px solid var(--line);
     position:relative;
   }
-  .tape::before,.tape::after{
-    content:"";
-    position:absolute;left:0;right:0;height:6px;
-    background:radial-gradient(circle, var(--ink) 3px, transparent 3.5px) repeat-x;
-    background-size:16px 6px;
-    opacity:.9;
-  }
-  .tape::before{top:3px}
-  .tape::after{bottom:3px}
   .tape-track{
     display:flex;gap:32px;align-items:center;
     white-space:nowrap;
     animation:scroll 22s linear infinite;
     font-family:"Geist Mono", monospace;
-    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
-    font-weight:700;
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    font-weight:500;
   }
   @media (prefers-reduced-motion: reduce){ .tape-track{animation:none} }
   @keyframes scroll{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
-  .tape b{font-weight:800;color:var(--signal)}
-  .tape em{font-style:normal;opacity:.45}
+  .tape b{font-weight:700;color:var(--fg)}
+  .tape em{font-style:normal;opacity:.4}
 
   /* header */
   header{
@@ -78,7 +86,7 @@
   }
   .brand i{
     width:28px;height:28px;display:grid;place-items:center;
-    background:var(--signal);color:white;border-radius:7px;
+    background:var(--fg);color:var(--bg);border-radius:7px;
     font-style:normal;font-weight:800;letter-spacing:0;
   }
   nav{display:flex;gap:10px;align-items:center}
@@ -93,10 +101,9 @@
   .cta{
     font-family:"Geist Mono", monospace;
     font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-    background:var(--signal);color:white;
+    background:var(--fg);color:var(--bg);
     border:0;border-radius:999px;padding:10px 16px;
     font-weight:700;cursor:pointer;
-    box-shadow:0 8px 24px rgba(255,77,0,0.35);
   }
   .cta:active{transform:scale(.98)}
 
@@ -111,7 +118,7 @@
   }
   @media (max-width:900px){ .hero{grid-template-columns:1fr} }
   .instrument{
-    background:var(--card);
+    background:var(--paper);
     border:1px solid var(--line);
     border-radius:18px;
     padding:20px 18px 16px;
@@ -126,7 +133,7 @@
       linear-gradient(var(--grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid) 1px, transparent 1px);
     background-size:32px 32px;
-    opacity:.35;pointer-events:none;
+    opacity:.18;pointer-events:none;
   }
   .instrument-head{
     position:relative;z-index:1;
@@ -136,8 +143,8 @@
     margin-bottom:10px;
   }
   .live-dot{
-    width:8px;height:8px;background:var(--cyan);border-radius:50%;
-    box-shadow:0 0 0 6px rgba(6,182,212,0.18), 0 0 12px var(--cyan);
+    width:8px;height:8px;background:var(--accent);border-radius:50%;
+    box-shadow:0 0 0 6px rgba(0,255,136,0.18), 0 0 12px var(--accent);
     animation:pulse 1.6s ease-in-out infinite;
   }
   @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(.88)}}
@@ -166,12 +173,12 @@
   }
   .gauge-label::before,.gauge-label::after{content:"";width:22px;height:1px;background:var(--line)}
   #heroCount{
-    font-family:"Gnomon", serif;
+    font-family:"Gnomon", "Instrument Sans", sans-serif;
+    font-weight:800;
     font-size:clamp(48px, 9vw, 96px);
-    line-height:.9;letter-spacing:-.03em;
+    line-height:.9;letter-spacing:-.055em;
     font-variant-numeric:tabular-nums;
-    color:white;
-    text-shadow:0 12px 40px rgba(0,0,0,0.45);
+    color:var(--fg);
   }
   .subline{
     margin-top:8px;
@@ -199,41 +206,38 @@
   /* control panel — right side, dial aesthetic */
   .panel{
     background:var(--paper);
-    color:var(--ink);
+    color:var(--fg);
+    border:1px solid var(--line);
     border-radius:18px;
     padding:18px 18px 16px;
     display:flex;flex-direction:column;gap:14px;
     position:relative;
     overflow:hidden;
   }
-  .panel::before{
-    content:"";position:absolute;top:0;right:0;width:42%;height:42%;
-    background:var(--signal);opacity:.08;
-    clip-path:polygon(100% 0, 0 0, 100% 100%);
-    pointer-events:none;
-  }
   .panel h2{
-    font-family:"Gnomon", serif;
+    font-family:"Gnomon", "Instrument Sans", sans-serif;
+    font-weight:800;
     font-size:28px;line-height:.95;letter-spacing:-.02em;
   }
-  .panel h2 em{font-style:normal;color:var(--signal)}
+  .panel h2 em{font-style:normal;color:var(--accent)}
   .panel p{
-    font-size:14px;line-height:1.55;color:#2A3245;
+    font-size:14px;line-height:1.55;color:var(--muted);
   }
   .agent-dial{
     display:grid;grid-template-columns:1fr 1fr;gap:8px;
     margin-top:2px;
   }
   .dial-card{
-    border:1px solid #D9DDE4;border-radius:12px;
+    border:1px solid var(--line);border-radius:12px;
     padding:12px 12px 10px;
-    background:white;
+    background:var(--bg);
+    color:var(--fg);
     position:relative;
   }
-  .dial-card.active{border-color:var(--ink);box-shadow:0 8px 20px rgba(10,15,30,0.08)}
+  .dial-card.active{border-color:var(--fg);box-shadow:0 8px 20px rgba(0,0,0,0.12)}
   .dial-card.active::after{
     content:"●";position:absolute;top:10px;right:10px;
-    color:var(--signal);font-size:10px;
+    color:var(--accent);font-size:10px;
   }
   .dial-card h3{
     font-family:"Geist Mono", monospace;
@@ -245,7 +249,7 @@
     line-height:1.4;
   }
   .install{
-    background:var(--ink);color:#E6EAF2;
+    background:var(--ink);color:var(--fg);
     border-radius:12px;padding:12px 12px;
     font-family:"Geist Mono", monospace;
     font-size:12px;letter-spacing:.02em;
@@ -284,59 +288,60 @@
   }
   @media (max-width:860px){ .grid3{grid-template-columns:1fr} }
   .card{
-    background:var(--paper);color:var(--ink);
+    background:var(--paper);color:var(--fg);
     border-radius:14px;padding:16px 16px 14px;
-    border:1px solid #E1E5EB;
+    border:1px solid var(--line);
     position:relative;
   }
   .card h3{
-    font-family:"Gnomon", serif;
+    font-family:"Gnomon", "Instrument Sans", sans-serif;
+    font-weight:800;
     font-size:18px;line-height:1.1;letter-spacing:-.01em;
   }
-  .card h3 span{color:var(--signal)}
-  .card p{margin-top:8px;font-size:13.5px;line-height:1.55;color:#2A3245}
+  .card h3 span{color:var(--accent)}
+  .card p{margin-top:8px;font-size:13.5px;line-height:1.55;color:var(--muted)}
   .card dl{
     margin-top:12px;
     display:flex;gap:10px;flex-wrap:wrap;
     font-family:"Geist Mono", monospace;
     font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
   }
-  .card dl b{color:var(--ink);font-size:11px;letter-spacing:.02em}
+  .card dl b{color:var(--fg);font-size:11px;letter-spacing:.02em}
   .card::after{
     content:"";position:absolute;top:14px;right:14px;
     width:28px;height:28px;border-radius:8px;
-    background:var(--ink);opacity:.06;
+    background:var(--fg);opacity:.06;
   }
 
   .compat{
-    background:var(--card);color:#E6EAF2;
+    background:var(--paper);color:var(--fg);
     border:1px solid var(--line);border-radius:18px;
     padding:18px;
     display:grid;grid-template-columns:1.1fr .9fr;gap:18px;
     align-items:center;
   }
   @media (max-width:860px){ .compat{grid-template-columns:1fr} }
-  .compat h3{font-family:"Gnomon", serif;font-size:22px;line-height:1}
+  .compat h3{font-family:"Gnomon", "Instrument Sans", sans-serif;font-weight:800;font-size:22px;line-height:1}
   .compat p{color:var(--muted);font-size:13.5px;margin-top:8px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
   .chip{
     font-family:"Geist Mono", monospace;
     font-size:11px;letter-spacing:.08em;
     padding:8px 12px;border-radius:999px;
-    border:1px solid var(--line);background:rgba(255,255,255,0.04);
-    color:#E6EAF2;
+    border:1px solid var(--line);background:var(--bg);
+    color:var(--fg);
     display:inline-flex;align-items:center;gap:8px;
   }
-  .chip i{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+  .chip i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
   .chip.muted{opacity:.45}
   .compat-ill{
-    background:var(--paper);border-radius:14px;
-    padding:14px;border:1px solid #E1E5EB;
-    color:var(--ink);
+    background:var(--bg);border-radius:14px;
+    padding:14px;border:1px solid var(--line);
+    color:var(--muted);
     font-family:"Geist Mono", monospace;
     font-size:11px;
   }
-  .compat-ill b{color:var(--signal)}
+  .compat-ill b{color:var(--accent)}
   .compat-ill pre{
     margin-top:8px;background:var(--ink);color:#E6EAF2;
     border-radius:10px;padding:12px;overflow:auto;
@@ -352,7 +357,7 @@
     border-top:1px solid var(--line);margin-top:14px;
   }
   footer a{color:var(--muted);text-decoration:none}
-  footer a:hover{color:white}
+  footer a:hover{color:var(--fg)}
 
   /* focus */
   :focus-visible{outline:2px solid var(--signal);outline-offset:2px}

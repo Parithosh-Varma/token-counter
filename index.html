@@ -335,66 +335,75 @@
       bgCtx.clearRect(0,0,W,H);
       return;
     }
-    // prune old beyond window
+    // prune old beyond window — use displayed tail for smoothness
     const now = Date.now();
     while(graphHistory.length > 1 && (graphHistory.length > GRAPH_MAX_POINTS || (now - graphHistory[0].t > GRAPH_WINDOW_MS))){
       graphHistory.shift();
     }
     if(graphHistory.length < 2) { bgCtx.clearRect(0,0,W,H); return; }
-    const vals = graphHistory.map(p=>p.v);
+    // for smooth last segment, override last point's v with tweened displayed (so graph glides with number)
+    const valsRaw = graphHistory.map(p=>p.v);
+    // if tween active, use displayed for last value for smooth y
+    let vals = valsRaw.slice();
+    if(tweenDuration > 0) vals[vals.length-1] = displayed;
     let min = Math.min(...vals), max = Math.max(...vals);
     const pad = (max - min) * 0.12 || Math.max(1, max * 0.06);
     min -= pad; max += pad;
     if(min < 0) min = 0;
     const span = max - min || 1;
-    const t0 = graphHistory[0].t, t1 = graphHistory[graphHistory.length-1].t;
+    // for smooth x, use now as t1 if tween active (so graph scrolls continuously)
+    const t0 = graphHistory[0].t;
+    const t1 = tweenDuration > 0 ? now : graphHistory[graphHistory.length-1].t;
     const tSpan = Math.max(1, t1 - t0);
 
     bgCtx.clearRect(0,0,W,H);
 
-    // subtle horizontal grid (2 lines)
-    bgCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--dim") || "#2a2a2e";
-    bgCtx.globalAlpha = 0.35;
-    bgCtx.lineWidth = 1;
-    bgCtx.setLineDash([4,8]);
-    for(let i=1;i<=2;i++){
-      const y = (H * i/3);
-      bgCtx.beginPath(); bgCtx.moveTo(28, y); bgCtx.lineTo(W-28, y); bgCtx.stroke();
-    }
-    bgCtx.setLineDash([]);
-    bgCtx.globalAlpha = 1;
-
-    // map
+    // map — polymarket minimal, no heavy grid
     const pts = graphHistory.map(p => ({
       x: 18 + ((p.t - t0)/tSpan) * (W - 36),
       y: H - 18 - ((p.v - min)/span) * (H - 36)
     }));
 
-    // gradient fill under line
+    // pointy graph — straight lines, sharp points (per user request)
+    function smoothPath(ctx, points){
+      if(points.length < 2) return;
+      ctx.moveTo(points[0].x, points[0].y);
+      for(let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
+    }
+    // polymarket-like gradient — subtle blue area (like btc 5m)
     const grad = bgCtx.createLinearGradient(0,0,0,H);
-    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#00ff88";
-    // parse accent to rgba for gradient
-    bgCtx.globalAlpha = 0.14;
-    grad.addColorStop(0, accent);
+    const accentRaw = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#00ff88";
+    const accent = "#1652f0"; // polymarket blue — clean like btc updown chart
+    // keep accentRaw for dot, but line uses polymarket blue for that event style
+    bgCtx.globalAlpha = 1;
+    // faint grid like polymarket card
+    bgCtx.strokeStyle = "rgba(127,127,127,0.08)";
+    bgCtx.lineWidth = 1;
+    bgCtx.setLineDash([]);
+    // draw 1 mid line only — polymarket minimal
+    bgCtx.beginPath(); bgCtx.moveTo(18, H/2); bgCtx.lineTo(W-18, H/2); bgCtx.stroke();
+    // prepare fill gradient
+    bgCtx.globalAlpha = 0.09;
+    grad.addColorStop(0, accent + "33");
+    grad.addColorStop(0.55, accent + "0f");
     grad.addColorStop(1, "transparent");
     bgCtx.fillStyle = grad;
     bgCtx.beginPath();
     bgCtx.moveTo(pts[0].x, H - 18);
-    pts.forEach(p => bgCtx.lineTo(p.x, p.y));
+    smoothPath(bgCtx, pts);
     bgCtx.lineTo(pts[pts.length-1].x, H - 18);
     bgCtx.closePath();
     bgCtx.fill();
     bgCtx.globalAlpha = 1;
 
-    // line
+    // polymarket-style — thin, crisp, no glow, subtle (like btc 5m sparkline)
     bgCtx.strokeStyle = accent;
-    bgCtx.lineWidth = 2.2;
+    bgCtx.lineWidth = 1.6;
     bgCtx.lineJoin = "round";
     bgCtx.lineCap = "round";
-    bgCtx.shadowColor = accent;
-    bgCtx.shadowBlur = 10;
+    bgCtx.shadowBlur = 0;
     bgCtx.beginPath();
-    pts.forEach((p,i) => i===0 ? bgCtx.moveTo(p.x,p.y) : bgCtx.lineTo(p.x,p.y));
+    smoothPath(bgCtx, pts);
     bgCtx.stroke();
     bgCtx.shadowBlur = 0;
 
@@ -492,6 +501,8 @@
         countEl.classList.remove("bump");
       }
     }
+    // redraw bg graph every frame so both number and line glide together (no sharp jumps)
+    if(graphHistory.length > 1) drawGraph();
     rafId = requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
