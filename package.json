@@ -1,0 +1,10 @@
+{
+  "name": "opencode-token-viewer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Minimalist live opencode token count — big bold font, smooth animation",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "PORT=8787 node server.js"
+  }
+}

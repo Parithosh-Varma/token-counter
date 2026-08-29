@@ -1,0 +1,8 @@
+
+  ● opencode token viewer (multi-agent)
+  → http://127.0.0.1:8788
+  → opencode DB: /Users/varma/.local/share/opencode/opencode.db ✓
+  → codex DB: /Users/varma/Downloads/CODING/codex-config/state_5.sqlite ✓
+  → claude: ~/.claude/projects ✓
+  → polling ~250ms + agents cached 2-4s
+

@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>opencode — tokens</title>
+<meta name="color-scheme" content="dark light" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@700;800&family=Geist+Mono:wght@500&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#050507;
+    --fg:#f5f5f5;
+    --muted:#9a9aa0;
+    --dim:#2a2a2e;
+    --accent:#00ff88;
+    --accent2:#7c5cff;
+    --pill-bg:#111113;
+    --pill-bd:#1e1e22;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#fcfcfc;
+      --fg:#0a0a0a;
+      --muted:#71717a;
+      --dim:#e4e4e7;
+      --pill-bg:#ffffff;
+      --pill-bd:#e4e4e7;
+    }
+  }
+  /* manual override via data-theme */
+  [data-theme="dark"]{
+    --bg:#050507;
+    --fg:#f5f5f5;
+    --muted:#9a9aa0;
+    --dim:#2a2a2e;
+    --pill-bg:#111113;
+    --pill-bd:#1e1e22;
+  }
+  [data-theme="light"]{
+    --bg:#fcfcfc;
+    --fg:#0a0a0a;
+    --muted:#71717a;
+    --dim:#e4e4e7;
+    --pill-bg:#ffffff;
+    --pill-bd:#e4e4e7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family:"Instrument Sans", Inter, -apple-system, Helvetica, Arial, sans-serif;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:geometricPrecision;
+  }
+
+  /* top bar */
+  .top{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 22px;
+    font-family:"Geist Mono", ui-monospace, monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    border-bottom:1px solid var(--pill-bd);
+    background:color-mix(in srgb, var(--bg) 96%, transparent);
+    backdrop-filter:saturate(1.2) blur(8px);
+    z-index:2;
+  }
+  .left{display:flex;align-items:center;gap:10px}
+  .dot{
+    width:8px;height:8px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 12px var(--accent);
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{transform:scale(1);opacity:1}
+    50%{transform:scale(.88);opacity:.85}
+  }
+  .live{display:flex;align-items:center;gap:8px;font-weight:600}
+  .live b{color:var(--fg);letter-spacing:.18em}
+  .right{opacity:.9;display:flex;align-items:center;gap:14px}
+  .right span{white-space:nowrap}
+  #sessionTitle{max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg);letter-spacing:.04em;text-transform:none;font-size:11px}
+  .icon-btn{
+    appearance:none;border:1px solid var(--pill-bd);background:var(--pill-bg);color:var(--muted);
+    border-radius:999px;padding:6px 10px;font-family:inherit;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    cursor:pointer;transition:.15s;
+  }
+  .icon-btn:hover{color:var(--fg);border-color:var(--dim);transform:translateY(-1px)}
+  .icon-btn:active{transform:translateY(0) scale(.98)}
+  .mode-switch{display:inline-flex;align-items:center;background:var(--pill-bg);border:1px solid var(--pill-bd);border-radius:999px;padding:2px;gap:2px}
+  .mode-btn{appearance:none;border:0;background:transparent;color:var(--muted);font-family:"Geist Mono", monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:5px 10px;border-radius:999px;cursor:pointer;transition:.15s}
+  .mode-btn.active{background:var(--fg);color:var(--bg);font-weight:700}
+  .mode-btn:not(.active):hover{color:var(--fg)}
+
+  /* center stage */
+  .stage{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px 20px 18px;
+    position:relative;
+    overflow:hidden;
+  }
+  #bgGraph{
+    position:absolute;inset:0;width:100%;height:100%;
+    z-index:0;pointer-events:none;opacity:.22;
+    filter:blur(.2px);
+  }
+  .stage > *:not(#bgGraph){position:relative;z-index:1}
+  .label{
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);
+    margin-bottom:10px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .label::before,.label::after{content:"";height:1px;width:28px;background:var(--dim);display:block;opacity:.8}
+  .number-wrap{
+    position:relative;
+    display:flex;align-items:baseline;justify-content:center;
+    width:100%;
+    user-select:none;
+  }
+  #count{
+    font-weight:800;
+    font-size:clamp(56px, 17vw, 220px);
+    line-height:.88;
+    letter-spacing:-.055em;
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1, "ss01" 1;
+    transition:transform .18s cubic-bezier(.16,1,.3,1), filter .18s;
+    will-change:transform;
+    text-align:center;
+    white-space:nowrap;
+  }
+  #count.bump{transform:scale(1.02); filter:brightness(1.08)}
+  #count.settled{transform:scale(1)}
+
+  .sub{
+    margin-top:10px;
+    font-family:"Geist Mono", monospace;
+    font-size:12px;letter-spacing:.08em;color:var(--muted);
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;
+  }
+  .sub b{color:var(--fg);font-weight:600}
+  .divider{opacity:.35}
+
+  /* pills */
+  .pills{
+    margin-top:22px;
+    display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;
+    max-width:860px;
+  }
+  .pill{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--pill-bg);
+    border:1px solid var(--pill-bd);
+    border-radius:999px;
+    padding:8px 14px;
+    font-family:"Geist Mono", monospace;
+    font-size:11px;letter-spacing:.06em;
+    color:var(--muted);
+    line-height:1;
+    transition:border-color .2s, transform .2s;
+  }
+  .pill strong{color:var(--fg);font-weight:700;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+  .pill em{font-style:normal;width:7px;height:7px;border-radius:50%;display:inline-block}
+  .pill.in em{background:#60a5fa}
+  .pill.out em{background:#f472b6}
+  .pill.cache em{background:var(--accent)}
+  .pill.cost em{background:#facc15}
+  .pill:hover{border-color:var(--dim);transform:translateY(-1px)}
+
+  /* footer */
+  .foot{
+    padding:14px 22px 18px;
+    border-top:1px solid var(--pill-bd);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    font-family:"Geist Mono", monospace;
+    font-size:10.5px;letter-spacing:.08em;color:var(--muted);
+  }
+  .foot a{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--dim);padding-bottom:1px}
+  .foot a:hover{color:var(--fg)}
+  .mono{font-variant-numeric:tabular-nums}
+  .directory{max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9}
+
+  /* velocity bar — removed per user request */
+  .velocity{display:none !important}
+
+  /* theme toggle dot */
+  .theme-dot{width:9px;height:9px;border-radius:50%;background:var(--fg);display:inline-block;opacity:.15}
+
+  @media (max-width:640px){
+    .top{padding:12px 14px;font-size:10px}
+    #sessionTitle{display:none}
+    #count{font-size:clamp(48px, 20vw, 120px)}
+    .pills{gap:7px}
+    .pill{padding:7px 10px;font-size:10px}
+    .foot{font-size:10px;padding:12px 14px}
+    .velocity{width:86vw}
+  }
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="left">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="live"><b>LIVE</b> <span style="opacity:.6">•</span> <span id="sessionTitle">opencode</span></span>
+    </div>
+    <div class="right">
+      <div class="mode-switch" role="tablist" aria-label="time range">
+        <button class="mode-btn active" data-mode="daily" role="tab" aria-selected="true">daily</button>
+        <button class="mode-btn" data-mode="weekly" role="tab">weekly</button>
+        <button class="mode-btn" data-mode="session" role="tab">session</button>
+        <button class="mode-btn" data-mode="all" role="tab">all</button>
+      </div>
+      <span id="modelBadge" title="model">—</span>
+      <span id="updatedBadge" class="mono">—</span>
+      <button class="icon-btn" id="themeBtn" title="Toggle dark / light">◐ theme</button>
+      <button class="icon-btn" id="fsBtn" title="Fullscreen (F)">⛶ fullscreen</button>
+      <button class="icon-btn" id="copyBtn" title="Copy count">copy</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="bgGraph" aria-hidden="true"></canvas>
+    <div class="label" id="mainLabel">daily — today</div>
+    <div class="number-wrap">
+      <div id="count">0</div>
+    </div>
+    <div class="sub" id="sub" style="display:none">
+      <span style="display:none"><b id="totalFmt">0</b></span>
+      <span id="costFmt" style="display:none">$0.00</span>
+      <span id="sessCountFmt" style="display:none">0 sessions</span>
+      <span id="rateFmt" style="display:none" class="mono">0 tok/s</span>
+    </div>
+
+    <div class="pills" id="pills" style="display:none">
+      <span class="pill in"><em></em> input <strong id="pIn">0</strong></span>
+      <span class="pill out" id="pillOut" style="display:none"><em></em> output <strong id="pOut">0</strong></span>
+      <span class="pill cache" id="pillCache" style="display:none"><em></em> cache read <strong id="pCache">0</strong></span>
+      <span class="pill cost" id="pillCost" style="display:none"><em></em> cost <strong id="pReason">$0</strong></span>
+    </div>
+
+    <div class="velocity" aria-hidden="true"><i id="velBar"></i></div>
+  </main>
+
+  <footer class="foot">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <span class="directory" id="dir">—</span>
+      <span class="divider">·</span>
+      <span id="sessId" class="mono" title="session id">—</span>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <span id="globalFmt" class="mono">global 0</span>
+      <span class="theme-dot"></span>
+      <a href="/api/live" target="_blank" rel="noopener">api</a>
+      <span style="opacity:.5">localhost:8787</span>
+    </div>
+  </footer>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const countEl = $("#count");
+  const totalFmtEl = $("#totalFmt");
+  const costFmtEl = $("#costFmt");
+  const rateFmtEl = $("#rateFmt");
+  const pIn = $("#pIn");
+  const pOut = $("#pOut");
+  const pCache = $("#pCache");
+  const pReason = $("#pReason");
+  const sessTitle = $("#sessionTitle");
+  const modelBadge = $("#modelBadge");
+  const updatedBadge = $("#updatedBadge");
+  const dirEl = $("#dir");
+  const sessIdEl = $("#sessId");
+  const globalFmtEl = $("#globalFmt");
+  const velBar = $("#velBar");
+  const mainLabel = $("#mainLabel");
+  const sessCountFmt = $("#sessCountFmt");
+  const bgCanvas = $("#bgGraph");
+  const bgCtx = bgCanvas.getContext("2d", { alpha: true });
+
+  // mode: daily (default per user request) | weekly | session | all
+  let mode = localStorage.getItem("oc_mode") || "daily";
+  // migrate old weekly default to daily if user previously had weekly
+  if (mode === "weekly" && !localStorage.getItem("oc_mode_migrated_daily")) {
+    // keep weekly if user explicitly chose it recently? actually user just asked for daily, so force daily
+    mode = "daily";
+    localStorage.setItem("oc_mode_migrated_daily","1");
+  }
+  // reflect initial active
+  document.querySelectorAll(".mode-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+    b.setAttribute("aria-selected", b.dataset.mode === mode ? "true" : "false");
+  });
+
+  // smooth animation state
+  let displayed = 0;
+  let target = 0;
+  let lastTarget = 0;
+  let lastFetchTotal = 0;
+  let lastFetchTime = performance.now();
+  let rate = 0; // tokens per second smoothed
+  let rafId = 0;
+  let lastWeeklyTotal = 0;
+
+  // tokens/time bg graph — keeps last ~5-10 min of picked values
+  let graphHistory = []; // {t:ms, v:number}
+  const GRAPH_MAX_POINTS = 320;
+  const GRAPH_WINDOW_MS = 10 * 60 * 1000; // 10 min rolling
+
+  function resizeGraph(){
+    if(!bgCanvas) return;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const rect = bgCanvas.getBoundingClientRect();
+    if(rect.width < 10 || rect.height < 10) return;
+    bgCanvas.width = Math.floor(rect.width * dpr);
+    bgCanvas.height = Math.floor(rect.height * dpr);
+    bgCtx.setTransform(dpr,0,0,dpr,0,0);
+    drawGraph();
+  }
+  window.addEventListener("resize", resizeGraph);
+  // initial size after layout
+  requestAnimationFrame(() => { resizeGraph(); });
+
+  function drawGraph(){
+    if(!bgCtx || !bgCanvas) return;
+    const rect = bgCanvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    if(W < 10 || H < 10 || graphHistory.length < 2) {
+      bgCtx.clearRect(0,0,W,H);
+      return;
+    }
+    // prune old beyond window
+    const now = Date.now();
+    while(graphHistory.length > 1 && (graphHistory.length > GRAPH_MAX_POINTS || (now - graphHistory[0].t > GRAPH_WINDOW_MS))){
+      graphHistory.shift();
+    }
+    if(graphHistory.length < 2) { bgCtx.clearRect(0,0,W,H); return; }
+    const vals = graphHistory.map(p=>p.v);
+    let min = Math.min(...vals), max = Math.max(...vals);
+    const pad = (max - min) * 0.12 || Math.max(1, max * 0.06);
+    min -= pad; max += pad;
+    if(min < 0) min = 0;
+    const span = max - min || 1;
+    const t0 = graphHistory[0].t, t1 = graphHistory[graphHistory.length-1].t;
+    const tSpan = Math.max(1, t1 - t0);
+
+    bgCtx.clearRect(0,0,W,H);
+
+    // subtle horizontal grid (2 lines)
+    bgCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--dim") || "#2a2a2e";
+    bgCtx.globalAlpha = 0.35;
+    bgCtx.lineWidth = 1;
+    bgCtx.setLineDash([4,8]);
+    for(let i=1;i<=2;i++){
+      const y = (H * i/3);
+      bgCtx.beginPath(); bgCtx.moveTo(28, y); bgCtx.lineTo(W-28, y); bgCtx.stroke();
+    }
+    bgCtx.setLineDash([]);
+    bgCtx.globalAlpha = 1;
+
+    // map
+    const pts = graphHistory.map(p => ({
+      x: 18 + ((p.t - t0)/tSpan) * (W - 36),
+      y: H - 18 - ((p.v - min)/span) * (H - 36)
+    }));
+
+    // gradient fill under line
+    const grad = bgCtx.createLinearGradient(0,0,0,H);
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#00ff88";
+    // parse accent to rgba for gradient
+    bgCtx.globalAlpha = 0.14;
+    grad.addColorStop(0, accent);
+    grad.addColorStop(1, "transparent");
+    bgCtx.fillStyle = grad;
+    bgCtx.beginPath();
+    bgCtx.moveTo(pts[0].x, H - 18);
+    pts.forEach(p => bgCtx.lineTo(p.x, p.y));
+    bgCtx.lineTo(pts[pts.length-1].x, H - 18);
+    bgCtx.closePath();
+    bgCtx.fill();
+    bgCtx.globalAlpha = 1;
+
+    // line
+    bgCtx.strokeStyle = accent;
+    bgCtx.lineWidth = 2.2;
+    bgCtx.lineJoin = "round";
+    bgCtx.lineCap = "round";
+    bgCtx.shadowColor = accent;
+    bgCtx.shadowBlur = 10;
+    bgCtx.beginPath();
+    pts.forEach((p,i) => i===0 ? bgCtx.moveTo(p.x,p.y) : bgCtx.lineTo(p.x,p.y));
+    bgCtx.stroke();
+    bgCtx.shadowBlur = 0;
+
+    // current dot
+    const last = pts[pts.length-1];
+    bgCtx.fillStyle = accent;
+    bgCtx.beginPath(); bgCtx.arc(last.x, last.y, 3.5, 0, Math.PI*2); bgCtx.fill();
+    bgCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bg") || "#050507";
+    bgCtx.beginPath(); bgCtx.arc(last.x, last.y, 1.6, 0, Math.PI*2); bgCtx.fill();
+
+    // y labels (min/max) — very subtle top-right
+    bgCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted") || "#9a9aa0";
+    bgCtx.globalAlpha = 0.55;
+    bgCtx.font = "10px 'Geist Mono', monospace";
+    bgCtx.textAlign = "right";
+    bgCtx.fillText(fmtCompact(max), W - 10, 14);
+    bgCtx.fillText(fmtCompact(min), W - 10, H - 6);
+    bgCtx.globalAlpha = 1;
+  }
+
+  function labelForMode(m){
+    if(m==="daily") return "daily input — today";
+    if(m==="weekly") return "weekly input — last 7 days";
+    if(m==="session") return "session input — live";
+    return "all time input — lifetime";
+  }
+  mainLabel.textContent = labelForMode(mode);
+
+  const fmt = (n) => new Intl.NumberFormat("en-US").format(Math.floor(n));
+  const fmtPlain = (n) => String(Math.floor(n)); // no commas — for big display
+  const fmtCost = (n) => {
+    if (n == null || isNaN(n)) return "$0.00";
+    if (n < 0.01) return "$" + n.toFixed(4);
+    return "$" + n.toFixed(2);
+  };
+  const fmtCompact = (n) => {
+    if (n >= 1_000_000) return (n/1_000_000).toFixed(n >= 10_000_000 ? 1 : 2) + "M";
+    if (n >= 1000) return (n/1000).toFixed(n >= 10000 ? 1 : 2) + "k";
+    return fmt(n);
+  };
+
+  function renderImmediate(n) {
+    displayed = target = n;
+    countEl.textContent = fmt(displayed);
+    totalFmtEl.textContent = fmt(displayed);
+  }
+
+  // smooth animator — time-based tween (easeOutCubic) for each jump, fallback lerp
+  let tweenStart = 0, tweenStartTime = 0, tweenDuration = 0, tweenFrom = 0, tweenTo = 0;
+  function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+  function tick(now) {
+    const diff = target - displayed;
+    const abs = Math.abs(diff);
+    // if we have an active tween to target, use it
+    if (tweenDuration > 0 && Math.abs(tweenTo - target) < 0.5) {
+      const elapsed = now - tweenStartTime;
+      if (elapsed < tweenDuration) {
+        const p = easeOutCubic(elapsed / tweenDuration);
+        displayed = tweenFrom + (tweenTo - tweenFrom) * p;
+        countEl.textContent = fmt(displayed | 0);
+        totalFmtEl.textContent = fmt(displayed | 0);
+        const v = Math.min(1, Math.abs(tweenTo - tweenFrom) / 9000);
+        if (v > 0.015) {
+          countEl.classList.add("bump");
+          velBar.style.width = (Math.min(100, v * 100 + 8)) + "%";
+        }
+      } else {
+        displayed = tweenTo;
+        countEl.textContent = fmt(displayed);
+        totalFmtEl.textContent = fmt(displayed);
+        tweenDuration = 0;
+        if (abs < 0.5) countEl.classList.remove("bump");
+      }
+    } else if (abs < 0.4) {
+      if (displayed !== target) {
+        displayed = target;
+        countEl.textContent = fmt(displayed);
+        totalFmtEl.textContent = fmt(displayed);
+      }
+      tweenDuration = 0;
+    } else {
+      // fallback tiny lerp for micro-drift when no tween (should rarely hit)
+      let factor = 0.16;
+      if (abs > 4000) factor = 0.22;
+      else if (abs > 800) factor = 0.19;
+      displayed += diff * factor;
+      if (Math.abs(target - displayed) < 0.5) displayed = target;
+      countEl.textContent = fmt(displayed | 0);
+      totalFmtEl.textContent = fmt(displayed | 0);
+      const v = Math.min(1, abs / 8000);
+      if (v > 0.02) {
+        countEl.classList.add("bump");
+        velBar.style.width = (Math.min(100, v * 100 + 8)) + "%";
+      } else {
+        countEl.classList.remove("bump");
+      }
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  function startTween(to){
+    const from = displayed;
+    const dist = Math.abs(to - from);
+    if (dist < 0.5) { target = to; return; }
+    tweenFrom = from; tweenTo = to; tweenStartTime = performance.now();
+    // duration scales with distance: 450ms for tiny hops, up to 950ms for huge jumps — feels continuous
+    tweenDuration = Math.min(950, Math.max(480, 380 + Math.log10(dist + 10) * 140));
+    target = to;
+  }
+
+  // fetch loop — 220ms gives truly live feel (~4-5hz) but still light on DB
+  let fetchTimer = null;
+  let lastData = null;
+
+  function pickForMode(data){
+    if(mode === "daily" && data.daily) return {
+      total: data.daily.total_tokens || 0,
+      input: data.daily.sum_input || 0,
+      output: data.daily.sum_output || 0,
+      cache: data.daily.sum_cache_read || 0,
+      cost: data.daily.sum_cost || 0,
+      sessions: data.daily.sessions || 0,
+      reasoning: 0,
+    };
+    if(mode === "weekly" && data.weekly) return {
+      total: data.weekly.total_tokens || 0,
+      input: data.weekly.sum_input || 0,
+      output: data.weekly.sum_output || 0,
+      cache: data.weekly.sum_cache_read || 0,
+      cost: data.weekly.sum_cost || 0,
+      sessions: data.weekly.sessions || 0,
+      reasoning: data.weekly.sum_reasoning || 0,
+    };
+    if(mode === "all" && data.stats) return {
+      total: data.stats.total_tokens || 0,
+      input: data.stats.sum_input || 0,
+      output: data.stats.sum_output || 0,
+      cache: data.stats.sum_cache_read || 0,
+      cost: data.stats.sum_cost || 0,
+      sessions: data.stats.sessions || 0,
+      reasoning: 0,
+    };
+    const s = data.session;
+    return {
+      total: s.total ?? (s.tokens_input + s.tokens_output + s.tokens_cache_read + (s.tokens_cache_write||0) + (s.tokens_reasoning||0)),
+      input: s.tokens_input || 0,
+      output: s.tokens_output || 0,
+      cache: s.tokens_cache_read || 0,
+      cost: s.cost || 0,
+      sessions: 1,
+      reasoning: s.tokens_reasoning || 0,
+    };
+  }
+
+  async function fetchLive() {
+    try {
+      const res = await fetch("/api/live", { cache: "no-store" });
+      if (!res.ok) throw new Error("http " + res.status);
+      const data = await res.json();
+      if (!data.session) throw new Error("no session");
+      const s = data.session;
+      const picked = pickForMode(data);
+      const total = picked.input; // input-only per user request
+      // detect jump — start smooth tween instead of immediate target set
+      const prevTotal = lastData ? pickForMode(lastData).input : null;
+      if (prevTotal !== null && total !== prevTotal) {
+        countEl.classList.add("bump");
+        setTimeout(() => countEl.classList.remove("bump"), 180);
+      }
+      if (lastData === null) {
+        // first load — set directly (will be animated via init below)
+        target = total;
+      } else if (total !== target) {
+        startTween(total);
+      }
+
+      // compute rate (tok/s) with smoothing — based on picked input
+      const now = performance.now();
+      const dt = (now - lastFetchTime) / 1000;
+      const dTok = total - lastFetchTotal;
+      if (dt > 0.05 && dt < 5) {
+        const inst = dTok / dt;
+        rate = rate * 0.78 + inst * 0.22;
+        if (dTok < 0) rate = 0;
+      }
+      lastFetchTime = now;
+      lastFetchTotal = total;
+
+      // update secondary UI instantly (these don't need smooth)
+      pIn.textContent = fmtCompact(picked.input);
+      pIn.title = fmt(picked.input);
+      pOut.textContent = fmtCompact(picked.output);
+      pOut.title = fmt(picked.output);
+      pCache.textContent = fmtCompact(picked.cache);
+      pCache.title = fmt(picked.cache);
+      // pill 4 now shows cost (more useful for weekly) — keep title as reasoning if session mode
+      if (mode === "session") {
+        pReason.textContent = fmtCompact(picked.reasoning);
+        pReason.title = fmt(picked.reasoning);
+        document.querySelector(".pill.cost em").style.background = "#facc15";
+        document.querySelector(".pill.cost").childNodes[2].textContent = " reasoning ";
+      } else {
+        pReason.textContent = fmtCost(picked.cost);
+        pReason.title = fmtCost(picked.cost);
+        document.querySelector(".pill.cost em").style.background = "#facc15";
+        document.querySelector(".pill.cost").childNodes[2].textContent = " cost ";
+        // hack to set label text, simpler: replace whole pill text via innerHTML keep strong
+        document.querySelector(".pill.cost").innerHTML = '<em></em> cost <strong id="pReason">'+fmtCost(picked.cost)+'</strong>';
+      }
+      // input-only: hide output/cache/cost pills, only show input
+      // pills already hidden via style, just update input pill
+      costFmtEl.textContent = fmtCost(picked.cost);
+      sessCountFmt.textContent = (picked.sessions || 0) + " session" + (picked.sessions===1?"":"s");
+      rateFmtEl.textContent = (rate > 0.5 ? Math.round(rate).toLocaleString() + " tok/s" : "idle");
+      totalFmtEl.textContent = fmt(total); // sub total now matches big (input)
+
+      sessTitle.textContent = mode==="weekly" ? (picked.sessions + " sessions this week") : (s.title || "—");
+      let modelLabel = s.agent || "opencode";
+      if (s.model) {
+        try {
+          const m = s.model.trim().startsWith("{") ? JSON.parse(s.model) : null;
+          if (m && m.id) modelLabel = m.id;
+          else modelLabel = s.model.split("/").pop().split(":").pop();
+        } catch { modelLabel = s.model.split("/").pop().slice(0, 28); }
+      }
+      modelBadge.textContent = modelLabel;
+      sessIdEl.textContent = s.id ? s.id.slice(0, 18) + "…" : "—";
+      sessIdEl.title = s.id || "";
+      dirEl.textContent = s.directory || "—";
+      dirEl.title = s.directory || "";
+
+      const ageMs = Date.now() - (s.time_updated || Date.now());
+      const ageSec = Math.floor(ageMs / 1000);
+      let ageLabel = "now";
+      if (ageSec > 2) ageLabel = ageSec < 60 ? ageSec + "s ago" : Math.floor(ageSec/60) + "m ago";
+      updatedBadge.textContent = "updated " + ageLabel;
+      updatedBadge.style.color = ageSec < 4 ? "var(--accent)" : "var(--muted)";
+
+      if (data.stats) {
+        globalFmtEl.textContent = "global " + fmtCompact(data.stats.total_tokens || 0) + " · " + (data.stats.sessions || 0) + " sessions";
+        globalFmtEl.title = fmt(data.stats.total_tokens || 0) + " total tokens across " + (data.stats.sessions||0) + " sessions";
+      }
+      if (data.weekly) {
+        // also keep weekly in title tooltip
+        globalFmtEl.title += " | weekly " + fmt(data.weekly.total_tokens||0) + " in " + (data.weekly.sessions||0) + " sessions";
+      }
+
+      // velocity bar decay when idle
+      if (Math.abs(dTok) < 1) {
+        velBar.style.width = Math.max(0, parseFloat(velBar.style.width || "0") * 0.92) + "%";
+        if (parseFloat(velBar.style.width) < 2) velBar.style.width = "0%";
+      }
+
+      // push to bg graph history (always for current mode)
+      graphHistory.push({ t: Date.now(), v: total });
+      // keep history bounded (pruned in draw)
+      if(graphHistory.length > GRAPH_MAX_POINTS + 20) graphHistory.splice(0, graphHistory.length - GRAPH_MAX_POINTS);
+      drawGraph();
+
+      // initialize displayed — roll up from ~92% with tween so first load animates smoothly
+      if (lastData === null) {
+        const initFrom = total > 80000 ? Math.floor(total * 0.92) : (total > 4000 ? Math.max(0, total - Math.min(9000, total * 0.18)) : 0);
+        displayed = initFrom;
+        // seed graph with a few points so line appears immediately
+        if(graphHistory.length < 3){
+          for(let i=3;i>0;i--) graphHistory.unshift({ t: Date.now() - i*700, v: Math.max(0, total - i* Math.min(120, total*0.00008))});
+          drawGraph();
+        }
+        requestAnimationFrame(resizeGraph);
+        // start smooth tween to target for first load
+        if (total !== initFrom) {
+          tweenFrom = initFrom; tweenTo = total; tweenStartTime = performance.now();
+          tweenDuration = Math.min(950, Math.max(520, 380 + Math.log10(Math.abs(total - initFrom) + 10) * 140));
+          target = total;
+        }
+      }
+
+      lastData = data;
+    } catch (e) {
+      updatedBadge.textContent = "offline · " + (e.message || "error");
+      updatedBadge.style.color = "#ef4444";
+    }
+  }
+
+  // initial immediate fetch, then interval
+  fetchLive();
+  fetchTimer = setInterval(fetchLive, 220);
+
+  // theme toggle — manual dark/light, persists, respects system as default
+  const themeBtn = $("#themeBtn");
+  function applyTheme(t){
+    if(t==="dark" || t==="light") document.documentElement.setAttribute("data-theme", t);
+    else document.documentElement.removeAttribute("data-theme");
+    localStorage.setItem("oc_theme", t);
+    themeBtn.textContent = (t==="light" ? "☀ light" : t==="dark" ? "☾ dark" : "◐ theme");
+    // redraw graph with new colors
+    setTimeout(drawGraph, 30);
+  }
+  let savedTheme = localStorage.getItem("oc_theme");
+  if(savedTheme) applyTheme(savedTheme);
+  else applyTheme("dark"); // default dark for minimal bold look
+  themeBtn.addEventListener("click", ()=>{
+    const cur = document.documentElement.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    applyTheme(cur==="dark" ? "light" : "dark");
+  });
+
+  // copy button
+  $("#copyBtn").addEventListener("click", async () => {
+    const v = fmt(Math.floor(displayed));
+    try { await navigator.clipboard.writeText(v); } catch { const t=document.createElement("textarea"); t.value=v; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    const btn = $("#copyBtn");
+    const orig = btn.textContent;
+    btn.textContent = "copied ✓";
+    setTimeout(() => btn.textContent = orig, 1100);
+  });
+
+  // fullscreen
+  const fsBtn = $("#fsBtn");
+  fsBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen().catch(()=>{});
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() === "f" && !e.metaKey && !e.ctrlKey && e.target === document.body) {
+      e.preventDefault();
+      fsBtn.click();
+    }
+  });
+  document.addEventListener("fullscreenchange", () => {
+    fsBtn.textContent = document.fullscreenElement ? "✕ exit" : "⛶ fullscreen";
+  });
+
+  // mode switch
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      mode = btn.dataset.mode;
+      localStorage.setItem("oc_mode", mode);
+      document.querySelectorAll(".mode-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.mode === mode);
+        b.setAttribute("aria-selected", b.dataset.mode === mode ? "true" : "false");
+      });
+      mainLabel.textContent = labelForMode(mode);
+      // reset graph for new mode
+      graphHistory = [];
+      // reset rate and force re-pick on next fetch
+      const fallback = {daily:{sum_input:0,total_tokens:0}, weekly:{total_tokens:0}, stats:{total_tokens:0}, session:{tokens_input:0,tokens_output:0,tokens_cache_read:0}};
+      const ref = lastData ? pickForMode(lastData) : pickForMode(fallback);
+      lastFetchTotal = ref.input; // input-only
+      const newPicked = lastData ? pickForMode(lastData).input : target;
+      if (newPicked > 80000) displayed = Math.floor(newPicked * 0.93);
+      else displayed = Math.max(0, newPicked - Math.min(9000, newPicked * 0.12));
+      target = newPicked;
+      drawGraph();
+      fetchLive();
+    });
+  });
+
+  // number is not clickable (per user request) — no toggle
+  countEl.style.cursor = "default";
+  countEl.title = "";
+
+  // visibility: pause polling when hidden to save DB reads, resume instantly
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearInterval(fetchTimer); fetchTimer = null;
+    } else {
+      fetchLive();
+      if (!fetchTimer) fetchTimer = setInterval(fetchLive, 220);
+    }
+  });
+
+  // handle session switch — if total goes down (new session), do a nice roll
+  // (handled above via rate clamp, but add visual flash)
+})();
+</script>
+</body>
+</html>
