@@ -124,3 +124,5 @@ Add a new store in `server.js:140` `getOtherAgentsData()` — check `~/.cursor`,
   <em>Built as a studio instrument — one risk: <b>signal green #00ff88</b> as hero on ink. No template, no bloat.</em><br>
   <a href="https://github.com/Parithosh-Varma/token-viewer">Star it</a> · <a href="https://token-viewer-elg.pages.dev">Landing</a> · <a href="http://127.0.0.1:8787">Localhost</a>
 </p>
+
+<!-- daily-2026-09-07: upkeep -->
